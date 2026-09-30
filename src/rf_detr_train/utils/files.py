@@ -8,6 +8,19 @@ import yaml
 from rf_detr_train.loggers import logger
 
 
+def create_directory(dirpath: str | Path, parents: bool = False, exist_ok: bool = False) -> None:
+    """Create a directory at a specified path.
+
+    :param dirpath: Directory path.
+    :param parents: Whether directory parents should be created.
+    :param exist_ok: Whether directory exist_ok should be created.
+    :return:
+    """
+    dirpath = Path(dirpath)
+    dirpath.mkdir(parents=parents, exist_ok=exist_ok)
+    logger.info(f"Created directory at path: '{dirpath}'")
+
+
 def load_json(filepath: str | Path) -> dict[str, Any]:
     """Load a JSON object from disk.
 
