@@ -4,7 +4,7 @@ Input under --source-dirpath (default: FIFTYONE_DATASETS_DIRPATH / "coco-2017"):
     <split>/data/<image file_name>
     <split>/labels.json
 
-Output under --output-dirpath (default: DATASETS_DIRPATH / "native_coco" / "coco-2017"):
+Output under --output-dirpath (default: NATIVE_COCO_DATASETS_DIRPATH / "coco-2017"):
     train2017/<image file_name>
     val2017/<image file_name>
     annotations/instances_train2017.json
@@ -47,13 +47,13 @@ Examples (run from the repository root with dependencies already installed;
 import argparse
 from pathlib import Path
 
-from rf_detr_train.consts import DATASETS_DIRPATH, FIFTYONE_DATASETS_DIRPATH
+from rf_detr_train.consts import FIFTYONE_DATASETS_DIRPATH, NATIVE_COCO_DATASETS_DIRPATH
 from rf_detr_train.datasets import DatasetSplit
 from rf_detr_train.datasets.coco_conversion import ImageMode, convert_fiftyone_coco
 from rf_detr_train.loggers import logger
 
 DEFAULT_SOURCE_DIRPATH = FIFTYONE_DATASETS_DIRPATH / "coco-2017"
-DEFAULT_OUTPUT_DIRPATH = DATASETS_DIRPATH / "native_coco" / "coco-2017"
+DEFAULT_OUTPUT_DIRPATH = NATIVE_COCO_DATASETS_DIRPATH / "coco-2017"
 DEFAULT_SPLIT: DatasetSplit = "validation"
 DEFAULT_IMAGE_MODE: ImageMode = "symlink"
 

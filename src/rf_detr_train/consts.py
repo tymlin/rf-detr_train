@@ -3,8 +3,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.parent
 CONFIGS_DIRPATH = ROOT / "configs"
+
 DATASETS_DIRPATH = ROOT / "datasets"
 FIFTYONE_DATASETS_DIRPATH = DATASETS_DIRPATH / "fiftyone"
+ROBOFLOW_DATASETS_DIRPATH = DATASETS_DIRPATH / "roboflow"
+NATIVE_COCO_DATASETS_DIRPATH = DATASETS_DIRPATH / "native_coco"
+
 MODELS_DIRPATH = ROOT / "models"
 RUNS_DIRPATH = ROOT / "runs"
 RESULTS_DIRPATH = ROOT / "results"
