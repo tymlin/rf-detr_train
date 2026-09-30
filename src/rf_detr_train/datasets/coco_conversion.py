@@ -4,19 +4,17 @@ import os
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Literal
+from typing import Any
 
-from rf_detr_train.datasets.types import DatasetSplit
+from rf_detr_train.datasets.types import CocoLayout, DatasetSplit, ImageMode
 from rf_detr_train.loggers import logger
 from rf_detr_train.utils.files import load_json, require_dirpath
 from rf_detr_train.utils.progress import create_progress
 
-CocoLayout = Literal["roboflow", "native"]
-ImageMode = Literal["symlink", "copy"]
 
-
-def _validate_coco(data: dict[str, Any], images_dirpath: Path) -> list[Path]:
+def _validate_coco(data: dict[str, Any], images_dirpath: Path | str) -> list[Path]:
     """Validate annotation references and find every image before writing output."""
+    images_dirpath = Path(images_dirpath)
     if not isinstance(data, dict):
         raise ValueError("Expected a COCO JSON object.")
 
