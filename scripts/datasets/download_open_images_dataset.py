@@ -1,3 +1,46 @@
+r"""Download Open Images V7 detection data through the FiftyOne dataset zoo.
+
+Defaults:
+    Dataset directory: FIFTYONE_DATASETS_DIRPATH (datasets/fiftyone/).
+    Split: test.
+    Classes: no class filter.
+    Sample limit: none; download the entire selected split.
+
+FiftyOne stores each split under <dataset-dirpath>/open-images-v7/<split>/,
+including images and the detection annotations managed by its Open Images downloader.
+Supported splits are train, validation and test. This script downloads FiftyOne's
+layout; it does not export COCO JSON or prepare RF-DETR's Roboflow directory layout.
+
+Use --classes with Open Images class names, such as Person or "Human body".
+Quote names containing spaces; pass multiple names as separate arguments.
+Sample selection follows FiftyOne's download rules. Use --max-samples for a limited
+download or --all-samples to explicitly remove the sample limit. These two options
+are mutually exclusive. FiftyOne manages already downloaded data.
+
+Examples (run from the repository root with dependencies already installed;
+--no-sync uses the existing environment without installing or updating dependencies):
+
+    # Download the full test split using the default dataset directory.
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py
+
+    # Download up to 100 test images for a quick experiment.
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py --max-samples 100
+
+    # Request a subset using exact class names, including a name with spaces.
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py \
+        --split test --classes Person "Human body" --max-samples 100
+
+    # Download the full training split.
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py --split train --all-samples
+
+    # Override the FiftyOne dataset root (open-images-v7/ is created below it).
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py \
+        --dataset-dirpath /data/fiftyone --split validation --max-samples 100
+
+    # Show all command-line options and defaults.
+    uv run --no-sync scripts/datasets/download_open_images_dataset.py --help
+"""
+
 import argparse
 from pathlib import Path
 from typing import Sequence
@@ -10,7 +53,7 @@ from rf_detr_train.loggers import logger
 DEFAULT_DATASET_DIRPATH = FIFTYONE_DATASETS_DIRPATH
 DEFAULT_SPLIT: DatasetSplit = "test"
 DEFAULT_CLASSES_OF_INTEREST: Sequence[str] | None = None  # ["Person"], ["Person", "Human body", "Man", "Woman"]
-DEFAULT_MAX_SAMPLES: int | None = 5
+DEFAULT_MAX_SAMPLES: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +102,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Download the requested Open Images split and log its sample count and location."""
     args = parse_args()
     logger.info(
         f"Downloading dataset `Open Images` (split: {args.split}, #samples: {args.max_samples}) "

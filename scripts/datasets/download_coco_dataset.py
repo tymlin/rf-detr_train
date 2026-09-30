@@ -1,3 +1,46 @@
+r"""Download COCO 2017 detection data through the FiftyOne dataset zoo.
+
+Defaults:
+    Dataset directory: FIFTYONE_DATASETS_DIRPATH (datasets/fiftyone/).
+    Split: validation.
+    Classes: no class filter.
+    Sample limit: none; download the entire selected split.
+
+FiftyOne stores each split under <dataset-dirpath>/coco-2017/<split>/.
+Labelled train/validation splits contain data/ with images and labels.json with
+COCO annotations. COCO test images have no public detection ground truth.
+This script downloads FiftyOne's layout; conversion to RF-DETR layouts is separate.
+
+Use --classes to request images containing the given COCO class names, such as
+person or car. This selects images; it does not remap category IDs or guarantee
+that their annotations contain only the requested classes. Use --max-samples
+for a limited download or --all-samples to explicitly remove the sample limit.
+These two options are mutually exclusive. FiftyOne manages already downloaded data.
+
+Examples (run from the repository root with dependencies already installed;
+--no-sync uses the existing environment without installing or updating dependencies):
+
+    # Download the full validation split using the default dataset directory.
+    uv run --no-sync scripts/datasets/download_coco_dataset.py
+
+    # Download up to 100 validation images for a quick experiment.
+    uv run --no-sync scripts/datasets/download_coco_dataset.py --max-samples 100
+
+    # Request a validation subset containing person/car annotations.
+    uv run --no-sync scripts/datasets/download_coco_dataset.py \
+        --split validation --classes person car --max-samples 100
+
+    # Download the full training split.
+    uv run --no-sync scripts/datasets/download_coco_dataset.py --split train --all-samples
+
+    # Override the FiftyOne dataset root (coco-2017/ is created below it).
+    uv run --no-sync scripts/datasets/download_coco_dataset.py \
+        --dataset-dirpath /data/fiftyone --split validation --max-samples 100
+
+    # Show all command-line options and defaults.
+    uv run --no-sync scripts/datasets/download_coco_dataset.py --help
+"""
+
 import argparse
 from pathlib import Path
 from typing import Sequence
@@ -10,7 +53,7 @@ from rf_detr_train.loggers import logger
 DEFAULT_DATASET_DIRPATH = FIFTYONE_DATASETS_DIRPATH
 DEFAULT_SPLIT: DatasetSplit = "validation"
 DEFAULT_CLASSES_OF_INTEREST: Sequence[str] | None = None  # ["person"]
-DEFAULT_MAX_SAMPLES: int | None = 5
+DEFAULT_MAX_SAMPLES: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +102,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Download the requested COCO split and log its sample count and location."""
     args = parse_args()
     logger.info(
         f"Downloading dataset `COCO` (split: {args.split}, #samples: {args.max_samples}) "
