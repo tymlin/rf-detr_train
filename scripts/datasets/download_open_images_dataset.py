@@ -52,7 +52,7 @@ from rf_detr_train.loggers import logger
 
 DEFAULT_DATASET_DIRPATH = FIFTYONE_DATASETS_DIRPATH
 DEFAULT_SPLIT: DatasetSplit = "test"
-DEFAULT_CLASSES_OF_INTEREST: Sequence[str] | None = None  # ["Person"], ["Person", "Human body", "Man", "Woman"]
+DEFAULT_CLASSES_OF_INTEREST: Sequence[str] | None = None  # ["Person"], ["Person", "Man", "Woman", "Girl", "Boy"]
 DEFAULT_MAX_SAMPLES: int | None = None
 
 

@@ -10,8 +10,10 @@ Native COCO evaluates this validation set for both split="val" and split="test".
 RF-DETR loads the images and annotations through dataset_file="coco".
 
 By default, each run writes results.json containing config and metrics under
-RUNS_DIRPATH / "coco" / "rf_detr_<model>_native_coco" / NOW. Use --output-dirpath
-to choose another directory. The metrics are exactly those returned by model.evaluate().
+RUNS_DIRPATH / run_name / NOW. The default run_name is rf_detr_<model>.
+Use --run-name to name an experiment while keeping the automatic timestamp.
+An explicit --output-dirpath overrides the full path; no timestamp is appended.
+The metrics are exactly those returned by model.evaluate().
 
 Examples (run from the repository root with dependencies already installed;
 --no-sync uses the existing environment without installing or updating dependencies):
@@ -22,6 +24,11 @@ Examples (run from the repository root with dependencies already installed;
     # Select another model and override evaluation settings.
     uv run --no-sync scripts/evaluation/evaluate_coco.py \
         --model-name medium --batch-size 4 --num-workers 8
+
+    # Name an experiment; results go to runs/<run-name>/<date_and_time>/.
+    uv run --no-sync scripts/evaluation/evaluate_coco.py \
+        --dataset-dirpath datasets/native_coco/open-images-v7-person-test \
+        --split test --run-name open_images_small_before_finetuning
 
     # Use a compatible checkpoint, custom paths and aggregate metrics only.
     uv run --no-sync scripts/evaluation/evaluate_coco.py \
@@ -57,6 +64,10 @@ def parse_args() -> argparse.Namespace:
         "--model-name",
         choices=get_args(RFDETRModelName),
         help=f"RF-DETR model variant to evaluate. (default: {defaults.model_name})",
+    )
+    parser.add_argument(
+        "--run-name",
+        help="Experiment name for automatic result paths. By default, derived from the selected model.",
     )
     parser.add_argument(
         "--checkpoint-filepath",
@@ -100,7 +111,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dirpath",
         type=Path,
-        help="Results directory. By default, EvaluationConfig derives it from the selected model and run time.",
+        help="Exact results directory; overrides run_name and the automatic timestamp in the path.",
     )
     return parser.parse_args()
 

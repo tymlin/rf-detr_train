@@ -15,13 +15,18 @@ class EvaluationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model_name: RFDETRModelName = Field(default="small", description="RF-DETR detection model variant to evaluate.")
+    run_name: str = Field(
+        default_factory=lambda data: f"rf_detr_{data['model_name']}",
+        min_length=1,
+        description="Experiment name used in the automatic results directory; defaults to rf_detr_<model_name>.",
+    )
     dataset_dirpath: Path = Field(
         default=NATIVE_COCO_DATASETS_DIRPATH / "coco-2017",
         description="Native COCO dataset root containing val2017/ and annotations/.",
     )
     output_dirpath: Path = Field(
-        default_factory=lambda data: RUNS_DIRPATH / "coco" / f"rf_detr_{data['model_name']}_native_coco" / NOW,
-        description="Directory where the evaluation configuration and metrics are saved.",
+        default_factory=lambda data: RUNS_DIRPATH / data["run_name"] / NOW,
+        description="Results directory; defaults to RUNS_DIRPATH / run_name / NOW. An explicit path overrides it.",
     )
     checkpoint_filepath: Path | None = Field(
         default=None,
