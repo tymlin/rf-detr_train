@@ -1,15 +1,15 @@
 # RF-DETR Train
 
-Dataset preparation and evaluation experiments with [Roboflow RF-DETR](https://github.com/roboflow/rf-detr).
+Dataset preparation, evaluation and fine-tuning experiments with [Roboflow RF-DETR](https://github.com/roboflow/rf-detr).
 
 The repository currently supports downloading COCO 2017 and Open Images V7 through FiftyOne,
-converting downloaded data to native COCO or Roboflow COCO layouts, and evaluating pretrained
-RF-DETR checkpoints through `model.evaluate()`. Available model variants are `nano`, `small`,
-`medium` and `large`.
+converting downloaded data to native COCO or Roboflow COCO layouts, evaluating pretrained
+RF-DETR checkpoints through `model.evaluate()`, and fine-tuning through `model.train()`.
+Available model variants are `nano`, `small`, `medium` and `large`.
 
 The Open Images workflow prepares a single `person` class for a before/after fine-tuning experiment.
-Dataset conversion and evaluation of the original COCO checkpoint are implemented. A training
-script and evaluation of the fine-tuned model with the Roboflow loader are the next steps.
+The workflow includes dataset conversion, evaluation of the original COCO checkpoint, fine-tuning,
+and loading the fine-tuned checkpoint for evaluation with the Roboflow loader.
 
 ## Installation
 
@@ -71,7 +71,7 @@ uv version --bump <SEMVER_PART> # e.g. major, minor, patch
 
 Run the commands below from the repository root, after installing dependencies. All script examples
 use `uv run --no-sync` to use the existing environment without installing or updating dependencies.
-Dataset download scripts still download dataset files, and evaluation can download pretrained weights.
+Dataset download scripts still download dataset files, and evaluation or training can download pretrained weights.
 
 Directory defaults are defined in `src/rf_detr_train/consts.py`:
 
@@ -81,7 +81,7 @@ Directory defaults are defined in `src/rf_detr_train/consts.py`:
 | `NATIVE_COCO_DATASETS_DIRPATH` | `datasets/native_coco/` | Datasets for the native COCO loader |
 | `ROBOFLOW_DATASETS_DIRPATH` | `datasets/roboflow/` | Datasets for the Roboflow COCO loader |
 | `MODELS_DIRPATH` | `models/` | Pretrained weights; the model builder sets `RF_HOME` to this directory |
-| `RUNS_DIRPATH` | `runs/` | Evaluation configurations and metrics |
+| `RUNS_DIRPATH` | `runs/` | Run configurations, evaluation metrics, training logs and checkpoints |
 
 ## Available datasets and download options
 
@@ -221,9 +221,11 @@ the COCO converters only accept `train` and `validation` for training or local e
 
 ## Evaluation arguments and saved results
 
-`scripts/evaluation/evaluate_coco.py` currently calls `model.evaluate(dataset_file="coco", ...)`.
-It accepts native-layout datasets, including our converted Open Images test subset. It does not
-automatically select a loader from the directory name.
+`scripts/evaluation/evaluate_coco.py` calls `model.evaluate()` with the loader selected by
+`--dataset-file coco/roboflow`. The default `coco` accepts native-layout datasets, including our
+converted Open Images test subset. Use `roboflow` for checkpoints fine-tuned on our Roboflow
+exports. The script does not select a loader from the directory name, and changing the loader
+does not change the default dataset path; supply `--dataset-dirpath` for your export.
 
 Defaults live in `EvaluationConfig` in `src/rf_detr_train/evaluation/schemas.py`.
 Argparse passes only explicitly supplied overrides, so there is one source of defaults.
@@ -231,10 +233,11 @@ Argparse passes only explicitly supplied overrides, so there is one source of de
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `--model-name` | `small` | `nano`, `small`, `medium` or `large` |
-| `--checkpoint-filepath PATH` | Official COCO weights | Custom checkpoint matching the selected variant and native COCO category numbering |
-| `--dataset-dirpath PATH` | `datasets/native_coco/coco-2017` | Root containing `val2017/` and `annotations/instances_val2017.json` |
+| `--checkpoint-filepath PATH` | Official COCO weights | Custom checkpoint matching the selected variant and the loader's class mapping |
+| `--dataset-file coco/roboflow` | `coco` | Select the native COCO or Roboflow COCO loader |
+| `--dataset-dirpath PATH` | `datasets/native_coco/coco-2017` | Dataset root matching the loader: native `val2017/` and `annotations/`, or Roboflow `valid/` and/or `test/` with `_annotations.coco.json` |
 | `--device` | `cuda` | Device passed to RF-DETR |
-| `--split val/test` | `val` | Evaluation mode; the native COCO loader reads `val2017` in both modes |
+| `--split val/test` | `val` | Roboflow: `val` reads `valid/`, `test` reads `test/`; native COCO reads `val2017/` in both modes |
 | `--batch-size` | `8` | Images per batch; reduce it if GPU memory is insufficient |
 | `--num-workers` | `4` | Data loading worker processes; `0` loads in the main process |
 | `--eval-max-dets` | `100` | Maximum detections per image and category used by COCO metrics |
@@ -253,7 +256,7 @@ The dataset name does not automatically determine this directory. The directory 
 the script. Use a new directory if repeating an explicit `--output-dirpath`, as `results.json`
 at that exact path will be overwritten.
 
-`results.json` contains `config` (including the model, dataset path, run name and evaluation options)
+`results.json` contains `config` (including the model, checkpoint path, dataset loader/path, run name and evaluation options)
 and `metrics` returned by RF-DETR. Paths are serialized as JSON strings. Only returned metric values
 are saved; the console's per-class table may contain additional values that the package does not
 return. The script does not modify RF-DETR callbacks to collect them.
@@ -377,6 +380,7 @@ them distinct. The default paths already separate them.
 ```bash
 uv run --no-sync scripts/evaluation/evaluate_coco.py \
     --model-name small \
+    --dataset-file coco \
     --dataset-dirpath datasets/native_coco/open-images-v7-person-test \
     --split test \
     --run-name open_images_small_before_finetuning
@@ -388,11 +392,89 @@ The original COCO checkpoint is evaluated on the prepared `person` test annotati
 runs/open_images_small_before_finetuning/<date_and_time>/results.json
 ```
 
-The planned next step is fine-tuning on the Roboflow `train` split, selecting a checkpoint using
-`valid`, and evaluating that checkpoint on the matching Roboflow `test` split with
-`dataset_file="roboflow"`. The one-class model then predicts person at index `0`. The current
-`evaluate_coco.py` hardcodes the native loader, so it should not be used unchanged for that
-one-class checkpoint.
+### Fine-tune on the Roboflow dataset
+
+```bash
+uv run --no-sync scripts/training/train_rf_detr.py \
+    --run-name open_images_small_finetuning
+```
+
+This starts from the official RF-DETR Small COCO weights, trains on `train/`, and validates on
+`valid/` to select the best checkpoint. RF-DETR adjusts the detection head to the dataset's
+classes automatically. The default dataset is `datasets/roboflow/open-images-v7-person`.
+Each split must contain images and `_annotations.coco.json` as shown above.
+
+Training arguments (defaults are defined only in `TrainingConfig`):
+
+| Argument | Default / behavior |
+| --- | --- |
+| `--model-name nano/small/medium/large` | `small` |
+| `--dataset-dirpath PATH` | `datasets/roboflow/open-images-v7-person` |
+| `--checkpoint-filepath PATH` | Omitted: official pretrained COCO weights; supplied: initial weights matching the selected variant |
+| `--device DEVICE` | `cuda` |
+| `--epochs N` | `20` |
+| `--batch-size N` | `4` images per device |
+| `--grad-accum-steps N` | `4`; with the default batch size, the effective batch size on one GPU is `16` |
+| `--lr FLOAT` | `0.0001` |
+| `--num-workers N` | `4`; `0` loads data in the main process |
+| `--run-name NAME` | Optional; defaults to `rf_detr_<model_name>` |
+| `--output-dirpath PATH` | Optional exact output directory; overrides the automatic path and timestamp |
+| `--help` | Show supported arguments and their current defaults |
+
+For example, to reduce the per-device batch size while keeping the same effective batch size:
+
+```bash
+uv run --no-sync scripts/training/train_rf_detr.py \
+    --batch-size 2 --grad-accum-steps 8 \
+    --run-name open_images_small_finetuning
+```
+
+The script saves `config.json` before training. RF-DETR writes its training logs and checkpoints
+to the same directory, including `checkpoint_best_ema.pth` for the EMA model with the best
+validation score. EMA weights are an exponential moving average of the model weights during training:
+
+```text
+runs/open_images_small_finetuning/<date_and_time>/
+```
+
+Validation uses `eval_max_dets=100` and `log_per_class_metrics=True`, matching the default
+evaluation settings. TensorBoard is disabled. `run_test=False` keeps the test split out of this
+training run; `test/` is not required to start training. `--checkpoint-filepath` initializes
+model weights; it does not resume a previous run's optimizer or scheduler state.
+
+### Load and evaluate after fine-tuning
+
+After training finishes, load `checkpoint_best_ema.pth` from that training run and evaluate
+the Roboflow test export. Replace `<date_and_time>` below with the actual training directory name.
+Keep `--model-name` identical to the variant used for training.
+
+```bash
+uv run --no-sync scripts/evaluation/evaluate_coco.py \
+    --model-name small \
+    --checkpoint-filepath "runs/open_images_small_finetuning/<date_and_time>/checkpoint_best_ema.pth" \
+    --dataset-file roboflow \
+    --dataset-dirpath datasets/roboflow/open-images-v7-person \
+    --split test \
+    --run-name open_images_small_after_finetuning
+```
+
+The script loads the checkpoint through the existing model builder, evaluates `test/`, and saves
+the configuration and returned metrics to:
+
+```text
+runs/open_images_small_after_finetuning/<date_and_time>/results.json
+```
+
+This evaluation creates a new timestamped run. To evaluate the validation split instead, pass
+`--split val`; the Roboflow loader then reads `valid/`.
+
+The one-class model predicts person at index `0`, matching the mapping used by the Roboflow
+loader during training and evaluation. The original COCO checkpoint predicts person at sparse
+COCO ID `1`, which is why the before-training evaluation uses the native export.
+
+Compare `metrics` in the before/after `results.json` files for the same test images. Both commands
+use `split=test`, `eval_max_dets=100`, and per-class reporting. The native and Roboflow test exports
+must come from the same downloaded subset with the same conversion filters, as described above.
 
 ## Pre-commit
 

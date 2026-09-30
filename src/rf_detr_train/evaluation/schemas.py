@@ -1,4 +1,4 @@
-"""Configuration and results for native COCO evaluation."""
+"""Configuration and results for native or Roboflow COCO evaluation."""
 
 from pathlib import Path
 from typing import Literal
@@ -6,11 +6,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from rf_detr_train.consts import NATIVE_COCO_DATASETS_DIRPATH, NOW, RUNS_DIRPATH
+from rf_detr_train.datasets.types import RFDETRDatasetFile
 from rf_detr_train.models.types import RFDETRModelName
 
 
 class EvaluationConfig(BaseModel):
-    """Configure a model and a single native COCO evaluation run."""
+    """Configure a model and a single COCO evaluation run with the selected loader."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -20,9 +21,13 @@ class EvaluationConfig(BaseModel):
         min_length=1,
         description="Experiment name used in the automatic results directory; defaults to rf_detr_<model_name>.",
     )
+    dataset_file: RFDETRDatasetFile = Field(
+        default="coco",
+        description="RF-DETR dataset loader: coco for native COCO layout, roboflow for Roboflow COCO layout.",
+    )
     dataset_dirpath: Path = Field(
         default=NATIVE_COCO_DATASETS_DIRPATH / "coco-2017",
-        description="Native COCO dataset root containing val2017/ and annotations/.",
+        description="Dataset root matching dataset_file; changing the loader does not change the default path.",
     )
     output_dirpath: Path = Field(
         default_factory=lambda data: RUNS_DIRPATH / data["run_name"] / NOW,
@@ -30,12 +35,12 @@ class EvaluationConfig(BaseModel):
     )
     checkpoint_filepath: Path | None = Field(
         default=None,
-        description="Checkpoint matching the selected variant; None uses its official pretrained weights.",
+        description="Checkpoint matching the variant and loader's class mapping; None uses official COCO weights.",
     )
     device: str = Field(default="cuda", description="Device used to run RF-DETR, for example cuda or cpu.")
     split: Literal["val", "test"] = Field(
         default="val",
-        description="Evaluation mode passed to RF-DETR; native COCO uses its validation set for both val and test.",
+        description="Roboflow: val reads valid/ and test reads test/. Native COCO: both read val2017/.",
     )
     batch_size: int = Field(default=8, gt=0, description="Number of images processed in each evaluation batch.")
     num_workers: int = Field(

@@ -1,13 +1,19 @@
-r"""Evaluate an RF-DETR detection model on native COCO and save the result.
+r"""Evaluate an RF-DETR detection model on native or Roboflow COCO and save the result.
 
 All defaults are defined in EvaluationConfig. Command-line arguments override only
 the values explicitly supplied. Without --checkpoint-filepath, the model uses its
 official pretrained COCO weights. A custom checkpoint must match the selected
-variant and native COCO category IDs.
+variant and the selected loader's class mapping.
 
-The dataset root must contain val2017/ and annotations/instances_val2017.json.
-Native COCO evaluates this validation set for both split="val" and split="test".
-RF-DETR loads the images and annotations through dataset_file="coco".
+With --dataset-file coco (the default), the dataset root must contain val2017/
+and annotations/instances_val2017.json. Both split="val" and split="test" read
+this validation set. With --dataset-file roboflow, split="val" reads valid/ and
+split="test" reads test/, each containing images and _annotations.coco.json.
+Changing --dataset-file does not change the default --dataset-dirpath.
+
+Use native COCO for the unchanged official COCO checkpoint. For a model fine-tuned
+on our Roboflow export, load its checkpoint and evaluate the matching Roboflow
+export so the class mapping agrees with training.
 
 By default, each run writes results.json containing config and metrics under
 RUNS_DIRPATH / run_name / NOW. The default run_name is rf_detr_<model>.
@@ -36,6 +42,15 @@ Examples (run from the repository root with dependencies already installed;
         --dataset-dirpath /data/coco-2017 --output-dirpath /data/results/small \
         --no-log-per-class-metrics
 
+    # Evaluate a fine-tuned checkpoint on the Roboflow test split.
+    # Replace <date_and_time> with the training run's actual directory name.
+    uv run --no-sync scripts/evaluation/evaluate_coco.py \
+        --model-name small \
+        --checkpoint-filepath "runs/open_images_small_finetuning/<date_and_time>/checkpoint_best_total.pth" \
+        --dataset-file roboflow \
+        --dataset-dirpath datasets/roboflow/open-images-v7-person \
+        --split test --run-name open_images_small_after_finetuning
+
     # Show available arguments and their defaults.
     uv run --no-sync scripts/evaluation/evaluate_coco.py --help
 """
@@ -44,6 +59,7 @@ import argparse
 from pathlib import Path
 from typing import get_args
 
+from rf_detr_train.datasets.types import RFDETRDatasetFile
 from rf_detr_train.evaluation.schemas import EvaluationConfig, EvaluationResult
 from rf_detr_train.models.rf_detr import build_model
 from rf_detr_train.models.types import RFDETRModelName
@@ -57,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     """
     defaults = EvaluationConfig()
     parser = argparse.ArgumentParser(
-        description="Evaluate an RF-DETR detection model on native COCO.",
+        description="Evaluate an RF-DETR detection model on native or Roboflow COCO.",
         argument_default=argparse.SUPPRESS,
     )
     parser.add_argument(
@@ -79,14 +95,19 @@ def parse_args() -> argparse.Namespace:
         help=f"Device used for evaluation, for example cuda or cpu. (default: {defaults.device})",
     )
     parser.add_argument(
+        "--dataset-file",
+        choices=get_args(RFDETRDatasetFile),
+        help=f"Dataset loader: coco for native or roboflow for Roboflow layout. (default: {defaults.dataset_file})",
+    )
+    parser.add_argument(
         "--dataset-dirpath",
         type=Path,
-        help=f"Native COCO root containing val2017/ and annotations/. (default: {defaults.dataset_dirpath})",
+        help=f"Dataset root matching --dataset-file. (default: {defaults.dataset_dirpath})",
     )
     parser.add_argument(
         "--split",
         choices=get_args(EvaluationConfig.model_fields["split"].annotation),
-        help=f"Evaluation mode; native COCO uses validation data in both modes. (default: {defaults.split})",
+        help=f"Roboflow: val reads valid/, test reads test/. Native: both read val2017/. (default: {defaults.split})",
     )
     parser.add_argument(
         "--batch-size",
@@ -130,7 +151,7 @@ def main() -> None:
     )
     metrics = model.evaluate(
         dataset_dir=str(config.dataset_dirpath),
-        dataset_file="coco",
+        dataset_file=config.dataset_file,
         split=config.split,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
